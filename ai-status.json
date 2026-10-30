@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at": "2026-10-30T06:13:00-04:00",
+  "updated_at": "2026-10-30T06:34:00-04:00",
   "timezone": "America/New_York",
   "report_note": "Reported status, not a continuous connection or uptime test. Exact observed times are shown only when known.",
   "sides": [
@@ -138,7 +138,7 @@
     },
     {
       "name": "Double Instinct",
-      "reported_at": "2026-10-30T06:13:00-04:00",
+      "reported_at": "2026-10-30T06:34:00-04:00",
       "rows": [
         {
           "service": "ChatGPT",
@@ -169,22 +169,22 @@
         {
           "service": "Mistral Small 4",
           "status": "Historical answer only",
-          "detail": "Freshness/rank scenario review, candidate opinions. Displayed model label only, backend identity and current access not independently confirmed. Captured event time is approximate.",
-          "last_answer": "Oct 30, about 5:46:37 AM EDT",
-          "reported_at": "2026-10-30T06:13:00-04:00",
-          "event_at": "2026-10-30T09:46:37+00:00",
-          "report_kind": "Consolidated existing evidence; no new service check",
-          "event_time_precision": "Approximate captured time"
+          "detail": "Synthetic semantic-mutation answer: submitted about 6:23 AM, captured about 6:23:30 AM. Raw classification errors were caught; corrected examples remain scope-limited. No actual player, source or site validation. Displayed model label only; backend identity and current availability are not independently verified.",
+          "last_answer": "Oct 30, about 6:23:30 AM EDT",
+          "reported_at": "2026-10-30T06:34:00-04:00",
+          "event_at": "2026-10-30T10:23:30+00:00",
+          "report_kind": "Recorded answer event, then lead evaluation; not a new access test",
+          "event_time_precision": "Approximate answer capture"
         },
         {
           "service": "gpt-oss 120B",
           "status": "Historical answer only",
-          "detail": "Score comprehension review, candidate opinions. Displayed model label only, backend identity and current access not independently confirmed. Captured event time is approximate.",
-          "last_answer": "Oct 30, about 5:45:50 AM EDT",
-          "reported_at": "2026-10-30T06:13:00-04:00",
-          "event_at": "2026-10-30T09:45:50+00:00",
-          "report_kind": "Consolidated existing evidence; no new service check",
-          "event_time_precision": "Approximate captured time"
+          "detail": "Synthetic status-ledger fixture answer: submitted at 6:21:52 AM, captured about 6:22:22 AM. Raw answer overclaims were caught; the lead corrected records-scoped wording. Candidate review work, not a service-health or production-site validation. Displayed model label only; backend identity and current availability are not independently verified.",
+          "last_answer": "Oct 30, about 6:22:22 AM EDT",
+          "reported_at": "2026-10-30T06:34:00-04:00",
+          "event_at": "2026-10-30T10:22:22+00:00",
+          "report_kind": "Recorded answer event, then lead evaluation; not a new access test",
+          "event_time_precision": "Approximate answer capture"
         },
         {
           "service": "Grok",
@@ -241,12 +241,12 @@
         {
           "service": "Gemma 4 31B (Duck.ai picker)",
           "status": "Historical answer only",
-          "detail": "Rank/stale/missing-data scenario review, candidate opinions. Displayed model label only, backend identity and current access not independently confirmed. Captured event time is approximate.",
-          "last_answer": "Oct 30, about 5:47:22 AM EDT",
-          "reported_at": "2026-10-30T06:13:00-04:00",
-          "event_at": "2026-10-30T09:47:22+00:00",
-          "report_kind": "Consolidated existing evidence; no new service check",
-          "event_time_precision": "Approximate captured time"
+          "detail": "Synthetic aggregation-policy challenge: submitted at 6:26:59 AM, captured about 6:27:29 AM. It raised an unresolved total-row policy question; zero-as-missing and unweighted-share suggestions were rejected. This was a policy prompt, not actual production-code or source validation. Displayed model label only; backend identity and current availability are not independently verified.",
+          "last_answer": "Oct 30, about 6:27:29 AM EDT",
+          "reported_at": "2026-10-30T06:34:00-04:00",
+          "event_at": "2026-10-30T10:27:29+00:00",
+          "report_kind": "Recorded answer event, then lead evaluation; not a new access test",
+          "event_time_precision": "Approximate answer capture"
         },
         {
           "service": "Meta AI",
