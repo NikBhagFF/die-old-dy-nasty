@@ -1,72 +1,89 @@
 #!/usr/bin/env python3
-"""KTC devy snapshot refresher (rebuilt 2026-10-30 after workspace loss).
-
-Pulls the public KeepTradeCut devy-rankings page, extracts the embedded
-#ktc-players JSON (no login), maps to the PROSP row shape used by the site,
-and rewrites src/prosp.ts in the File source ONLY when the values changed.
-ESPN stays paused: GAMES_AT / GAMES_PAUSED lines are preserved verbatim.
-
-Usage: refresh.py [--check]   (check = report change status, write nothing)
+"""Refresh the established top-120 KTC devy snapshot without touching other data.
+Usage: python refresh.py --source path/to/prosp.ts [--check] [--html saved.html]
+Only the public KTC devy page is fetched. No other source is requested.
 """
-import re, json, html, sys, hashlib, urllib.request
-from datetime import datetime, timezone, timedelta
-
-SRC = '/downloads/dynasty_pub/src/prosp.ts'
+import argparse, hashlib, html, json, math, os, re, tempfile, urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
 URL = 'https://keeptradecut.com/devy-rankings'
+PATTERN = r'(export const PROSP: any = )(\{.*?\})(;\n)'
 
-def fetch_rows():
-    req = urllib.request.Request(URL, headers={'User-Agent': 'Mozilla/5.0'})
-    s = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')
-    m = re.search(r'id="ktc-players">(\[.*?\])</script>', s, re.S)
-    if not m:
-        raise RuntimeError('ktc-players JSON not found on page (site shape changed)')
-    arr = json.loads(html.unescape(m.group(1)))
+def parse_rows(page):
+    match = re.search(r'id=[\"\x27]ktc-players[\"\x27]>(\[.*?\])</script>', page, re.S)
+    if not match:
+        raise ValueError('KTC player JSON missing; keep the existing snapshot')
+    players = json.loads(html.unescape(match.group(1)))
     rows = []
-    for p in arr:
+    for p in players:
         sf = p.get('superflexValues') or {}
-        rows.append({
-            'n': p['playerName'], 'pos': p['position'], 'sch': p.get('team') or '',
-            'cls': p.get('draftYear'), 'ht': f"{p.get('heightFeet',0)}'{p.get('heightInches',0)}\"",
-            'wt': p.get('weight'), 'v': sf.get('value'), 'rk': sf.get('rank'),
-            'pr': sf.get('positionalRank'), 'tr': sf.get('overallTrend'),
-        })
-    rows.sort(key=lambda r: (r['rk'] is None, r['rk'] or 1e9))
-    return rows[:120]  # established export shape: top 120 superflex
+        rows.append(dict(n=p['playerName'], pos=p['position'], sch=p.get('team'),
+            cls=p.get('draftYear'), ht=(str(p['heightFeet']) + "'" + str(p['heightInches']) + '\"') if p.get('heightFeet') is not None and p.get('heightInches') is not None else None,
+            wt=p.get('weight'), v=sf.get('value'), rk=sf.get('rank'),
+            pr=sf.get('positionalRank'), tr=sf.get('overallTrend')))
+    if len(rows) < 120:
+        raise ValueError('Fewer than 120 source rows; keep the existing snapshot')
+    for r in rows:
+        if not r['n'] or r['pos'] not in ('QB','RB','WR','TE'):
+            raise ValueError('Invalid player identity/position')
+        for key in ('v','rk','pr'):
+            if isinstance(r[key], bool) or not isinstance(r[key], (int,float)) or not math.isfinite(r[key]) or r[key] < (0 if key == 'v' else 1):
+                raise ValueError('Missing or invalid value/rank; keep the existing snapshot')
+    rows.sort(key=lambda r:r['rk'])
+    rows=rows[:120]
+    if len({(r['n'],r['pos'],r['sch']) for r in rows}) != 120 or len({r['rk'] for r in rows}) != 120:
+        raise ValueError('Duplicate identities or ranks')
+    return rows
 
-def current_rows():
-    s = open(SRC).read()
-    m = re.search(r'export const PROSP: any = (\{.*?\});\n', s, re.S)
-    return json.loads(m.group(1))['rows'], s
+def extract(source):
+    match = re.search(PATTERN, source, re.S)
+    if not match:
+        raise ValueError('Existing PROSP export not recognized')
+    return match, json.loads(match.group(2))
+
+def digest(rows):
+    return hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+def updated(source, rows, now):
+    match, data = extract(source)
+    data['rows'] = rows
+    result=source[:match.start(2)] + json.dumps(data,ensure_ascii=False) + source[match.end(2):]
+    et=now.astimezone(ZoneInfo('America/New_York'))
+    for name,value in [('PROSP_AT',et.strftime('%b %-d, %-I:%M %p ET')),('PROSP_ISO',now.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))]:
+        result,count=re.subn(r'(export const '+name+r' = )"[^"]*";', lambda m:m.group(1)+json.dumps(value)+';', result)
+        if count != 1:
+            raise ValueError('Timestamp export missing or duplicated')
+    _, new_data=extract(result)
+    if {k:v for k,v in data.items() if k!='rows'} != {k:v for k,v in new_data.items() if k!='rows'}:
+        raise ValueError('Non-ranking data changed')
+    return result
 
 def main():
-    check_only = '--check' in sys.argv
-    new = fetch_rows()
-    cur, src = current_rows()
-    h_new = hashlib.sha256(json.dumps(new, sort_keys=True).encode()).hexdigest()[:12]
-    h_cur = hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()[:12]
-    if h_new == h_cur:
-        print(f'UNCHANGED {h_cur} ({len(new)} rows)')
+    ap=argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--source',required=True,type=Path)
+    ap.add_argument('--check',action='store_true')
+    ap.add_argument('--html',type=Path,help='Use an already saved source response, without a network request')
+    args=ap.parse_args()
+    source=args.source.read_text()
+    _,current=extract(source)
+    if args.html:
+        page=args.html.read_text()
+    else:
+        request=urllib.request.Request(URL,headers={'User-Agent':'Mozilla/5.0'})
+        with urllib.request.urlopen(request,timeout=30) as response:
+            page=response.read().decode('utf-8')
+    rows=parse_rows(page)
+    old,new=digest(current['rows']),digest(rows)
+    print(json.dumps(dict(status='UNCHANGED' if old==new else 'CHANGED',checked_at=datetime.now(timezone.utc).isoformat(),source=URL,rows=len(rows),old_sha256=old,new_sha256=new)))
+    if old==new or args.check:
         return
-    print(f'CHANGED {h_cur} -> {h_new} ({len(new)} rows)')
-    if check_only:
-        return
-    now = datetime.now(timezone.utc)
-    et = now.astimezone(timezone(timedelta(hours=-4)))  # EDT (Oct); revisit in Nov for EST
-    disp = et.strftime('%b %-d, %-I:%M %p ET')
-    iso = now.strftime('%Y-%m-%dT%H:%M:%SZ')
-    games_at = re.search(r'export const GAMES_AT = .*?;\n', src).group(0)
-    games_paused = re.search(r'export const GAMES_PAUSED = .*?;\n', src).group(0)
-    games_block = re.search(r'export const GAMES: any = .*?;\n', src, re.S)
-    out = (
-        '// College prospect snapshot: scheduled pull from KeepTradeCut and ESPN (hosted page cannot call them)\n'
-        + 'export const PROSP: any = ' + json.dumps({'rows': new}) + ';\n'
-        + f'export const PROSP_AT = "{disp}";\n'
-        + f'export const PROSP_ISO = "{iso}";\n'
-        + (games_block.group(0) if games_block else '')
-        + games_at + games_paused
-    )
-    open(SRC, 'w').write(out)
-    print(f'WROTE {SRC} at {disp}')
-
-if __name__ == '__main__':
+    result=updated(source,rows,datetime.now(timezone.utc))
+    with tempfile.NamedTemporaryFile('w',dir=args.source.parent,delete=False) as temp:
+        temp.write(result)
+        temp.flush()
+        os.fsync(temp.fileno())
+        temporary=temp.name
+    os.replace(temporary,args.source)
+if __name__=='__main__':
     main()
