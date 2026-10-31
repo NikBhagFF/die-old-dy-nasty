@@ -1,4 +1,4 @@
-name: Restore clean portrait asset names
+name: Restore clean asset names
 on:
   workflow_dispatch:
 permissions:
@@ -8,31 +8,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Dry-run collision check
+      - name: Dry-run collision check (aborts before any rename)
         run: |
           cd assets
-          echo "webp total: $(ls *.webp 2>/dev/null | wc -l)"
-          echo "prefixed: $(ls | grep -c '^[0-9]*-' || true)"
-          dups=$(ls | grep '^[0-9]*-' | sed 's/^[0-9]*-//' | sort | uniq -d)
-          if [ -n "$dups" ]; then echo "::error::clean-name collisions: $dups"; exit 1; fi
-          echo "collision check passed"
-      - name: Strip web-upload sequence prefixes (no deletions)
+          files=$(ls | grep -E '^[0-9]+-[^-]+\.(webp|jpg)$' || true)
+          echo "prefixed files found: $(echo "$files" | grep -c . || true)"
+          echo "$files" | sed -E 's/^[0-9]+-//' | sort | uniq -d > /tmp/dupcleans.txt || true
+          for c in $(cat /tmp/dupcleans.txt); do
+            group=$(echo "$files" | grep -- "-$c$")
+            first=$(echo "$group" | head -1)
+            for other in $(echo "$group" | tail -n +2); do
+              if ! cmp -s "$first" "$other"; then echo "::error::different-content collision: $c ($first vs $other)"; exit 1; fi
+            done
+            echo "identical group ok: $c ($(echo "$group" | wc -l) copies)"
+          done
+          echo "collision check passed - identical duplicates will be kept, not deleted"
+      - name: Rename numeric-prefix files only (no deletions)
         run: |
           cd assets
           moved=0; kept=0
-          for f in *.webp; do
+          for f in $(ls | grep -E '^[0-9]+-[^-]+\.(webp|jpg)$'); do
             clean="${f#*-}"
-            if [ "$f" != "$clean" ]; then
-              if [ -e "$clean" ]; then
-                echo "kept both (clean name already exists): $f"
-                kept=$((kept+1))
-              else
-                git mv "$f" "$clean"
-                moved=$((moved+1))
-              fi
+            if [ -e "$clean" ]; then
+              echo "kept both (clean name exists, identical content verified): $f"
+              kept=$((kept+1))
+            else
+              git mv "$f" "$clean"
+              moved=$((moved+1))
             fi
           done
-          echo "moved: $moved, kept prefixed duplicates: $kept"
+          echo "moved: $moved, kept prefixed identical duplicates: $kept"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --cached --quiet; then echo "no changes to commit"; else git commit -m "Restore clean portrait asset names after web upload" && git push; fi
+          if git diff --cached --quiet; then echo "no changes to commit"; else git commit -m "Restore clean asset names after web upload" && git push; fi
