@@ -10,6 +10,24 @@
 <body>
 <div id="root"></div>
 <noscript><p style="text-align:center">This page needs JavaScript to show league data.</p></noscript>
+<script>
+/* Pages adapter: the Files host injects window.instinctFile; GitHub Pages does not.
+   Supply initialRoute and route() so the app boots here; the hash carries deeplinks. */
+(function () {
+  if (window.instinctFile && window.instinctFile.initialRoute && typeof window.instinctFile.route === "function") return;
+  var h = location.hash || "";
+  var initial = h.indexOf("#/") === 0 ? h.slice(1) : "/";
+  window.instinctFile = window.instinctFile || {};
+  if (!window.instinctFile.initialRoute) window.instinctFile.initialRoute = initial;
+  if (typeof window.instinctFile.route !== "function") {
+    window.instinctFile.route = function (r) {
+      if (typeof r === "string" && r.charAt(0) === "/") {
+        try { history.replaceState(null, "", location.pathname + (r === "/" ? "" : "#" + r)); } catch (e) {}
+      }
+    };
+  }
+})();
+</script>
 <script src="./3-main.js"></script>
 </body>
 </html>
