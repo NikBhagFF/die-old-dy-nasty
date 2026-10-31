@@ -8,27 +8,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Strip web-upload sequence prefixes from assets
+      - name: Dry-run collision check
         run: |
           cd assets
-          before=$(ls *.webp 2>/dev/null | wc -l)
-          echo "webp files before: $before"
+          echo "webp total: $(ls *.webp 2>/dev/null | wc -l)"
+          echo "prefixed: $(ls | grep -c '^[0-9]*-' || true)"
+          dups=$(ls | grep '^[0-9]*-' | sed 's/^[0-9]*-//' | sort | uniq -d)
+          if [ -n "$dups" ]; then echo "::error::clean-name collisions: $dups"; exit 1; fi
+          echo "collision check passed"
+      - name: Strip web-upload sequence prefixes (no deletions)
+        run: |
+          cd assets
+          moved=0; kept=0
           for f in *.webp; do
             clean="${f#*-}"
             if [ "$f" != "$clean" ]; then
               if [ -e "$clean" ]; then
-                echo "dup removed: $f"
-                git rm -q "$f"
+                echo "kept both (clean name already exists): $f"
+                kept=$((kept+1))
               else
                 git mv "$f" "$clean"
+                moved=$((moved+1))
               fi
             fi
           done
-          after=$(ls *.webp | wc -l)
-          prefixed=$(ls | grep -c '^[0-9]*-' || true)
-          echo "webp files after: $after, still prefixed: $prefixed"
-          git add -A .
+          echo "moved: $moved, kept prefixed duplicates: $kept"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Restore clean portrait asset names after web upload" || echo "no changes"
-          git push
+          if git diff --cached --quiet; then echo "no changes to commit"; else git commit -m "Restore clean portrait asset names after web upload" && git push; fi
