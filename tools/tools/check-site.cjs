@@ -9,12 +9,12 @@ const js=assets.filter(p=>p.endsWith('.js')).map(p=>fs.readFileSync(path.join(ro
 // Extract the actual compiled whole/2dp display formatter from the served bundle, not a copied implementation.
 // Shape-tolerant: matches any name/whitespace, anchored on the semantic contract
 // (guard returning String(input); Number(); Number.isInteger ? String : toFixed(2)).
-const match=js.match(/([\w$]+)\s*=\s*\(\s*([\w$]+)\s*\)\s*=>\s*\{\s*if\s*\([\s\S]{0,160}?Number\(\2\)[\s\S]{0,160}?\)\s*return\s+String\(\2\);\s*(?:const|let)\s+([\w$]+)\s*=\s*Number\(\2\);\s*return\s+Number\.isInteger\(\3\)\s*\?\s*String\(\3\)\s*:\s*\3\.toFixed\(2\)\s*;?\s*\}/);
+const match=js.match(/([\w$]+)\s*=\s*\(?\s*([\w$]+)\s*\)?\s*=>\s*\{\s*if\s*\([\s\S]{0,160}?Number\(\2\)[\s\S]{0,160}?\)\s*return\s+String\(\2\);\s*(?:const|let)\s+([\w$]+)\s*=\s*Number\(\2\);\s*return\s+Number\.isInteger\(\3\)\s*\?\s*String\(\3\)\s*:\s*\3\.toFixed\(2\)\s*;?\s*\}/);
 assert(match,'actual compiled whole/2dp formatter not found: review compiler/source change');
-const f=vm.runInNewContext('('+match[0].slice(match[0].indexOf('('))+')');
+const f=vm.runInNewContext('('+match[0].slice(match[0].indexOf('=')+1)+')');
 for(const [v,want] of [[0,'0'],[21,'21'],[21.3636,'21.36'],[-1.239,'-1.24'],['0','0'],[null,'null'],['','']])assert.equal(f(v),want);
 // nflNumber contract (src/nflDisplay.ts): non-number/non-finite -> "Unknown"; integer -> plain; else toFixed(2).
-const nflM=js.match(/function\s+nflNumber\s*\(\s*([\w$]+)\s*\)\s*\{[\s\S]{0,300}?toFixed\(2\)[\s\S]{0,80}?\}/);
+const nflM=js.match(/function\s+[\w$]+\s*\(\s*([\w$]+)\s*\)\s*\{\s*if\s*\(\s*typeof\s+\1\s*!={0,2}\s*["']number["'][\s\S]{0,160}?return\s*["']Unknown["'];[\s\S]{0,200}?toFixed\(2\)[\s\S]{0,80}?\}/);
 assert(nflM,'actual compiled nflNumber formatter not found: review compiler/source change');
 const nfl=vm.runInNewContext('('+nflM[0]+')');
 for(const [v,want] of [[0,'0'],[21,'21'],[21.3636,'21.36'],[-1.239,'-1.24'],[NaN,'Unknown'],[undefined,'Unknown'],['21','Unknown'],[null,'Unknown']])assert.equal(nfl(v),want);
