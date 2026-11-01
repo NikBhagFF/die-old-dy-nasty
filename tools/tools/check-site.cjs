@@ -18,5 +18,5 @@ const nflM=js.match(/function\s+nflNumber\s*\(\s*([\w$]+)\s*\)\s*\{[\s\S]{0,300}
 assert(nflM,'actual compiled nflNumber formatter not found: review compiler/source change');
 const nfl=vm.runInNewContext('('+nflM[0]+')');
 for(const [v,want] of [[0,'0'],[21,'21'],[21.3636,'21.36'],[-1.239,'-1.24'],[NaN,'Unknown'],[undefined,'Unknown'],['21','Unknown'],[null,'Unknown']])assert.equal(nfl(v),want);
-assert(js.includes('exp. wins'),'expected wins renderer missing');
-console.log(JSON.stringify({result:'PASS',entryAssets:assets,aiRows:rows,checks:['local JS/CSS exists','AI schema/unique rows/valid report times','actual compiled whole/2dp formatter','actual compiled nflNumber formatter'],limits:['no vendor calls','old report is not an outage','not full-site calculation/source coverage','not File host parity or visual test']}));
+assert(js.includes('Dynasty Calendar')&&js.includes('Pick Odds'),'core renderer missing: Dynasty Calendar / Pick Odds (playoff-odds section removed per owner direction 2026-10-31; markers are current surviving League-tab + Draft-tab renderers)');
+console.log(JSON.stringify({result:'PASS',entryAssets:assets,aiRows:rows,checks:['local JS/CSS exists','AI schema/unique rows/valid report times','actual compiled whole/2dp formatter','actual compiled nflNumber formatter','core renderer markers present'],limits:['no vendor calls','old report is not an outage','not full-site calculation/source coverage','not File host parity or visual test']}));
